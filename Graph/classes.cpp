@@ -379,6 +379,7 @@ void Graph::transformToAdjList() {          //трансформация в список смежности
 			connectivityListWeight.resize(Number + 1);
 			for (set <tuple <int, int, int> >::iterator bi = edgeListWeight.begin(); bi != edgeListWeight.end(); ++bi) {
 				connectivityListWeight[get<0>(*bi)].insert(make_pair(get<1>(*bi), get<2>(*bi)));
+				connectivityListWeight[get<1>(*bi)].insert(make_pair(get<0>(*bi), get<2>(*bi)));
 			}
 		}
 		break;
@@ -429,6 +430,9 @@ void Graph::transformToListOfEdges() {        //трансформация в список ребер
 			for (int ai = 0; ai <= Number; ai++) {
 				for (set <pair <int, int> >::iterator bi = connectivityListWeight[ai].begin(); bi != connectivityListWeight[ai].end(); ++bi) {
 					edgeListWeight.insert(make_tuple(ai, bi->first, bi->second));
+					int x = ai;
+					int y = bi->first;
+					connectivityListWeight[y].erase(make_pair(x, bi->second));
 					NumberEdge++;
 				}
 			}
