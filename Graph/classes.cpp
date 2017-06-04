@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <tuple>
 #include <map>
+#include <stack>
 
 using namespace std;
 
@@ -46,10 +47,10 @@ Graph::~Graph() {
 void Graph::readGraph(string fileName) {
 	ifstream fin(fileName);
 	string str;
-	while (!fin.eof()) {
-		fin >> indicatorRepresentation;
-		switch (indicatorRepresentation) {
+	fin >> indicatorRepresentation;
+	switch (indicatorRepresentation) {
 		case 'C':									    //матрица смежности
+			NumberEdge = 0;
 			fin >> Number >> indicatorWeight;
 			connectivityMatrix.resize(Number);
 			for (int i = 0; i<Number; i++) {
@@ -58,8 +59,10 @@ void Graph::readGraph(string fileName) {
 			for (int i = 0; i<Number; i++) {
 				for (int j = 0; j<Number; j++) {
 					fin >> connectivityMatrix[i][j];
+					if (connectivityMatrix[i][j] != 0) NumberEdge++;
 				}
 			}
+			NumberEdge = NumberEdge / 2;
 			indicatorOrientation = 0;
 			for (int i = 0; i<Number; i++) {
 				for (int j = 0; j<Number; j++) {
@@ -71,6 +74,7 @@ void Graph::readGraph(string fileName) {
 			}
 			break;
 		case 'L':
+			NumberEdge = 0;
 			fin >> Number >> indicatorOrientation >> indicatorWeight;
 			int bi, wi;
 			if (indicatorWeight == 0) {					 //список смежности для невзвешенного графа
@@ -80,6 +84,7 @@ void Graph::readGraph(string fileName) {
 					istringstream ist(str);
 					while (ist >> bi) {
 						connectivityList[i].insert(bi);
+						NumberEdge++;
 					}
 				}
 			}
@@ -90,9 +95,11 @@ void Graph::readGraph(string fileName) {
 					istringstream ist(str);
 					while (ist >> bi >> wi) {
 						connectivityListWeight[i].insert(make_pair(bi, wi));
+						NumberEdge++;
 					}
 				}
 			}
+			NumberEdge = NumberEdge / 2;
 			break;
 		case 'E':
 			fin >> Number >> NumberEdge >> indicatorOrientation >> indicatorWeight;
@@ -101,17 +108,18 @@ void Graph::readGraph(string fileName) {
 				for (int i = 0; i<NumberEdge; i++) {
 					fin >> ai >> bi;
 					edgeList.insert(make_pair(ai, bi));
+					edgeList.insert(make_pair(bi, ai));
 				}
 			}
 			else {										//список ребер для взвешенного графа
 				for (int i = 0; i<NumberEdge; i++) {
 					fin >> ai >> bi >> wi;
 					edgeListWeight.insert(make_tuple(ai, bi, wi));
+					edgeListWeight.insert(make_tuple(bi, ai, wi));
 				}
 			}
 			break;
-		}
-	}
+	 }
 }
 
 void Graph::addEdge(int from, int to, int weight) {
@@ -379,7 +387,6 @@ void Graph::transformToAdjList() {          //трансформация в список смежности
 			connectivityListWeight.resize(Number + 1);
 			for (set <tuple <int, int, int> >::iterator bi = edgeListWeight.begin(); bi != edgeListWeight.end(); ++bi) {
 				connectivityListWeight[get<0>(*bi)].insert(make_pair(get<1>(*bi), get<2>(*bi)));
-				connectivityListWeight[get<1>(*bi)].insert(make_pair(get<0>(*bi), get<2>(*bi)));
 			}
 		}
 		break;
@@ -430,9 +437,6 @@ void Graph::transformToListOfEdges() {        //трансформация в список ребер
 			for (int ai = 0; ai <= Number; ai++) {
 				for (set <pair <int, int> >::iterator bi = connectivityListWeight[ai].begin(); bi != connectivityListWeight[ai].end(); ++bi) {
 					edgeListWeight.insert(make_tuple(ai, bi->first, bi->second));
-					int x = ai;
-					int y = bi->first;
-					connectivityListWeight[y].erase(make_pair(x, bi->second));
 					NumberEdge++;
 				}
 			}
@@ -485,11 +489,13 @@ void Graph::writeGraph(string fileName) {
 		if (indicatorWeight == 0) {                                  //вывод списка ребер для невзвешенного графа
 			for (set <pair <int, int> >::iterator i = edgeList.begin(); i != edgeList.end(); ++i) {
 				fout << i->first << ' ' << i->second << endl;
+				edgeList.erase(make_pair(i->second, i->first));
 			}
 		}
 		else {														//вывод списка ребер для взвешенного графа
 			for (set <tuple <int, int, int> >::iterator i = edgeListWeight.begin(); i != edgeListWeight.end(); ++i) {
 				fout << get<0>(*i) << ' ' << get<1>(*i) << ' ' << get<2>(*i) << endl;
+				edgeListWeight.erase(make_tuple(get<1>(*i), get<0>(*i), get<2>(*i)));
 			}
 		}
 		fout.close();
@@ -617,4 +623,237 @@ Graph Graph::getSpaingTreeBoruvka() {
 		NumberEdge = edgeListWeight.size();
 		return *this;
 	}
+}
+
+int Graph::checkEuler(bool &circleExist) {
+	circleExist = false;
+	vector <int> power; //степеь вершины
+	power.resize(Number + 1);
+	DSU components(Number);
+	int oddPower = 0;  //количество нечетных степеней
+	int wayStart = 0;
+	int connectivityComponents = 0; //количество компонент связности
+	
+	if (indicatorWeight == 0) {
+		for (int i = 0; i <= Number; i++) {
+			for (set <int >::const_iterator j = connectivityList[i].begin(); j != connectivityList[i].end(); ++j) {
+				components.Unite(i,*j);
+				power[i]++;
+			}
+		}
+	}
+	else {
+		for (int i = 0; i <= Number; i++) {
+			for (set <pair<int, int>>::const_iterator j = connectivityListWeight[i].begin(); j != connectivityListWeight[i].end(); ++j) {
+				components.Unite(i, j->first);
+				power[i]++;
+			}
+		}
+	}
+	//проверяем степень вершин на четность
+	for (int v = 0; v < Number + 1; v++) {
+		if (power[v] % 2 != 0) {
+			wayStart = v;
+			oddPower++;
+		}
+	}
+	//проверяем компоненты связности, если ребер в компоненте связности больше 0
+	for (int i = 0; i < components.rank.size(); i++) {
+		if (components.rank[i] > 0) {
+			connectivityComponents++;
+		}
+	}
+	
+	vector <int>::iterator it;
+	if (oddPower == 0 && connectivityComponents == 1) {
+		circleExist = true;
+		it = max_element(power.begin(), power.end());
+		wayStart = distance(power.begin(), it);
+	}
+	else if (oddPower <= 2 && connectivityComponents == 1) {
+		circleExist = false;
+	}
+	else {
+		circleExist = false;
+		wayStart = 0;
+		return 0;
+	}
+
+	return wayStart;
+}
+
+bool Graph::BreadthFirstSearch(int from, int to) {
+//проверка на принадлежность ребра мосту
+	queue<int> q;
+	vector<bool> used(Number + 1, false);
+	q.push(from);
+	used[from] = true;
+	while (!q.empty()) {
+		int v = q.front();
+		q.pop();
+		if (indicatorWeight == 0) {
+			for (set <int >::iterator i = connectivityList[v].begin(); i != connectivityList[v].end(); ++i) {
+				int end = *i;
+				if (v == from && to == end)
+					continue;
+				if (!used[end]) {
+					used[end] = true;
+					q.push(end);
+				}
+			}
+		}
+		else {
+			for (set <pair<int,int>>::iterator i = connectivityListWeight[v].begin(); i != connectivityListWeight[v].end(); ++i) {
+				int end = i->first;
+				if (v == from && to == end)
+					continue;
+				if (!used[end]) {
+					used[end] = true;
+					q.push(end);
+				}
+			}
+		}
+	}
+	if (used[to]) return true;
+	return false;
+}
+
+vector<int> Graph::getEuleranTourFleri() {
+	if ((indicatorRepresentation == 'C') || (indicatorRepresentation == 'E')) transformToAdjList();
+	
+	bool circleExist;
+	vector <int> way;
+	set < pair<int, int> > usedEdge;
+	int wayStart = Graph::checkEuler(circleExist);
+	if (wayStart == 0 && !circleExist) return way;
+	int begin = wayStart;
+	
+	while (usedEdge.size() < NumberEdge) {
+		int bridge = 0;
+		if (indicatorWeight == 0) {
+			set <int >::iterator i = connectivityList[begin].begin();
+			for (i; i != connectivityList[begin].end(); ++i) {
+				int end = *i;
+				//проверяем, является ли ребро мостом
+				if (!BreadthFirstSearch(begin, end) && bridge == 0) {
+					bridge = end;
+					continue;
+				}
+				//проверяем, не прошли ли по этому ребру
+				bool used = false;
+				if (begin < end) {
+					if (usedEdge.find(make_pair(begin, end)) != usedEdge.end()) used = true;
+				}
+				if (end < begin) {
+					if (used = usedEdge.find(make_pair(end, begin)) != usedEdge.end()) used = true;
+				}
+				//добавляем вершину в путь, берем следующую
+				if (!used) {
+					if (begin < end) usedEdge.insert(make_pair(begin, end));
+					else usedEdge.insert(make_pair(end, begin));
+					way.push_back(begin);
+					begin = end;
+					i = connectivityList[begin].begin();
+					continue;
+				}
+			}		
+		}
+		else {
+			set <pair<int,int> >::iterator i = connectivityListWeight[begin].begin();
+			for (i; i != connectivityListWeight[begin].end(); ++i) {
+				int end = i->first;
+				//проверяем, является ли ребро мостом
+				if (!BreadthFirstSearch(begin, end) && bridge == 0) {
+					bridge = end;
+					continue;
+				}
+				//проверяем, не прошли ли по этому ребру
+				bool used = false;
+				if (begin < end) {
+					if (usedEdge.find(make_pair(begin, end)) != usedEdge.end()) used = true;
+				}
+				if (end < begin) {
+					if (used = usedEdge.find(make_pair(end, begin)) != usedEdge.end()) used = true;
+				}
+				//добавляем вершину в путь, берем следующую
+				if (!used) {
+					if (begin < end) usedEdge.insert(make_pair(begin, end));
+					else usedEdge.insert(make_pair(end, begin));
+					way.push_back(begin);
+					begin = end;
+					i = connectivityListWeight[begin].begin();
+					continue;
+				}
+			}
+		}
+		if (begin == wayStart && bridge != 0) {
+			if (begin < bridge) usedEdge.insert(make_pair(begin, bridge));
+			else usedEdge.insert(make_pair(bridge, begin));
+			way.push_back(begin);
+			begin = bridge;
+		}
+	}
+	way.push_back(begin);
+	return way;
+}
+
+vector<int> Graph::getEuleranTourEffective() {
+	if ((indicatorRepresentation == 'C') || (indicatorRepresentation == 'E')) transformToAdjList();
+
+	bool circleExist;
+	vector <int> way;
+	set < pair<int, int> > usedEdge;
+	int wayStart = Graph::checkEuler(circleExist);
+	if (wayStart == 0 && !circleExist) return way;
+	stack <int> S;
+
+	S.push(wayStart);
+	while (!S.empty()) {
+		int begin = S.top();
+		if (indicatorWeight == 0) {
+			for (set <int >::iterator i = connectivityList[begin].begin(); i != connectivityList[begin].end(); ++i) {
+				int end = *i;
+				//проверяем, не прошли ли по этому ребру
+				bool used = false;
+				if (begin < end) {
+					if (usedEdge.find(make_pair(begin, end)) != usedEdge.end()) used = true;
+				}
+				if (end < begin) {
+					if (used = usedEdge.find(make_pair(end, begin)) != usedEdge.end()) used = true;
+				}
+				//добавляем вершину в стек
+				if (!used) {
+					if (begin < end) usedEdge.insert(make_pair(begin, end));
+					else usedEdge.insert(make_pair(end, begin));
+					S.push(end);
+					break;
+				}
+			}
+		}
+		else {
+			for (set <pair<int, int>>::iterator i = connectivityListWeight[begin].begin(); i != connectivityListWeight[begin].end(); ++i) {
+				int end = i->first;
+				//проверяем, не прошли ли по этому ребру
+				bool used = false;
+				if (begin < end) {
+					if (usedEdge.find(make_pair(begin, end)) != usedEdge.end()) used = true;
+				}
+				if (end < begin) {
+					if (used = usedEdge.find(make_pair(end, begin)) != usedEdge.end()) used = true;
+				}
+				//добавляем вершину в стек
+				if (!used) {
+					if (begin < end) usedEdge.insert(make_pair(begin, end));
+					else usedEdge.insert(make_pair(end, begin));
+					S.push(end);
+					break;
+				}
+			}
+		}
+		if (begin == S.top()) {
+			S.pop();   // не нашлось инцидентных вершине begin рёбер, по которым ещё не прошли
+			way.push_back(begin);
+		}
+	}
+	return way;
 }

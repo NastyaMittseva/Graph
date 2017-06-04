@@ -5,8 +5,8 @@ using namespace std;
 DSU::DSU(int count) {
 //помещение каждой вершины в свое дерево
 	this->count = count;
-	p = new int[count];
-	rank = new int[count];
+	p.resize(count + 1);
+	rank.resize(count + 1);
 	for (int i = 1; i <= count; i++) {
 		p[i] = i;
 		rank[i] = 0;
@@ -14,13 +14,8 @@ DSU::DSU(int count) {
 }
 
 DSU::~DSU() {
-	if (p != nullptr) {
-		p = nullptr;
-		delete[] p;
-	}
-	if (rank != nullptr)
-		rank = nullptr;
-		delete[] rank;
+	p.clear();
+	rank.clear();
 }
 
 void DSU::Unite(int x, int y) {
@@ -28,13 +23,14 @@ void DSU::Unite(int x, int y) {
 	if ((x = Find(x)) == (y = Find(y)))
 		return;
 
-	if (rank[x] <  rank[y])
+	if (rank[x] < rank[y]) {
 		p[x] = y;
-	else
+		++rank[y];
+	}
+	else {
 		p[y] = x;
-
-	if (rank[x] == rank[y])
 		++rank[x];
+	}
 }
 
 int DSU::Find(int x) {

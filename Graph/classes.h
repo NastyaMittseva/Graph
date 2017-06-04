@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <queue>
 #include <set>
 #include <tuple>
 using namespace std;
@@ -28,7 +29,13 @@ public:
 	void transformToAdjMatrix();
 	void transformToListOfEdges();
 	void writeGraph(string fileName);
+
 	Graph getSpaingTreePrima();
 	Graph getSpaingTreeKruscal();
 	Graph getSpaingTreeBoruvka();
+
+	int checkEuler(bool &circleExist);
+	vector<int> getEuleranTourFleri();
+	vector<int> getEuleranTourEffective();
+	bool BreadthFirstSearch(int from, int to);
 };
